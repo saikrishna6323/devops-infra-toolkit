@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remediation-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: remediation-api }
+  template:
+    metadata:
+      labels: { app: remediation-api }
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/saikrishna6323/predictive-cicd-remediation:latest
+          ports: [{ containerPort: 8000 }]
+          envFrom:
+            - secretRef: { name: remediation-secrets }
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "500m", memory: "512Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: remediation-api }
+spec:
+  selector: { app: remediation-api }
+  ports: [{ port: 80, targetPort: 8000 }]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: remediation-api-hpa }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: remediation-api }
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } }
